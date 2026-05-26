@@ -71,7 +71,7 @@ export default function Layout({ children }) {
             width: 30, height: 30, borderRadius: '50%', background: 'var(--blue-light)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 11, fontWeight: 500, color: 'var(--blue-dark)'
-          }}>MR</div>
+          }}>SB</div>
         </div>
       </div>
 

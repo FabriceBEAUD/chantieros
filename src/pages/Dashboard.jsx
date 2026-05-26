@@ -23,7 +23,7 @@ export default function Dashboard() {
   return (
     <div className="fade-in">
       <div style={{ marginBottom: 12 }}>
-        <h1 style={{ fontSize: 16, fontWeight: 500 }}>Bonjour Michel — mardi 27 mai 2026</h1>
+        <h1 style={{ fontSize: 16, fontWeight: 500 }}>Bonjour Sébastien — mardi 27 mai 2026</h1>
         <p style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 3 }}>
           6 chantiers actifs · 3 alertes · <span style={{ color: 'var(--amber-dark)' }}>Risque pluie jeudi sur RD132</span>
         </p>
