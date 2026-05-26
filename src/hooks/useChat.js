@@ -16,70 +16,46 @@ export function useChat() {
   const sendMessage = useCallback(async (userText) => {
     if (!userText.trim() || loading) return
 
-    const newMessages = [...messages, { role: 'user', content: userText }]
-    setMessages(newMessages)
+    const userMessage = { role: 'user', content: userText }
+
+    setMessages(prev => [...prev, userMessage])
     setLoading(true)
     setError(null)
 
-    const assistantMsg = { role: 'assistant', content: '' }
-    setMessages(prev => [...prev, assistantMsg])
-
     try {
+      const currentMessages = [...messages, userMessage]
+
       const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages })
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ messages: currentMessages })
       })
 
-      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const data = await res.json()
 
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop()
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
-
-          const data = line.slice(6)
-          if (data === '[DONE]') break
-
-          try {
-            const parsed = JSON.parse(data)
-
-            if (parsed.text) {
-              setMessages(prev => {
-                const updated = [...prev]
-                updated[updated.length - 1] = {
-                  ...updated[updated.length - 1],
-                  content: updated[updated.length - 1].content + parsed.text
-                }
-                return updated
-              })
-            }
-
-            if (parsed.error) setError(parsed.error)
-          } catch {}
-        }
+      if (!res.ok) {
+        throw new Error(data.error || 'Erreur serveur')
       }
+
+      setMessages(prev => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: data.text
+        }
+      ])
     } catch (err) {
       setError(err.message)
 
-      setMessages(prev => {
-        const updated = [...prev]
-        updated[updated.length - 1] = {
+      setMessages(prev => [
+        ...prev,
+        {
           role: 'assistant',
-          content: 'Erreur de connexion à Mistral AI. Vérifiez que le backend Render est actif et que MISTRAL_API_KEY est bien renseignée.'
+          content: 'Erreur de connexion à Mistral AI : ' + err.message
         }
-        return updated
-      })
+      ])
     } finally {
       setLoading(false)
     }
@@ -96,5 +72,11 @@ export function useChat() {
     setError(null)
   }, [])
 
-  return { messages, loading, error, sendMessage, reset }
+  return {
+    messages,
+    loading,
+    error,
+    sendMessage,
+    reset
+  }
 }
