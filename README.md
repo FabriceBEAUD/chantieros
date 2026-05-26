@@ -1,23 +1,85 @@
 # ChantierOS
 
-Application web de pilotage chantier pour artisans et gérants de société de travaux publics.
+Application de gestion pour PME de travaux publics avec assistant IA intégré (Claude).
 
-## Installation locale
+## Stack
+- **Frontend** : React 18 + Vite + React Router
+- **Backend** : Node.js + Express
+- **IA** : Anthropic Claude (streaming SSE)
+- **Fonts** : DM Sans + DM Mono
+
+## Installation
 
 ```bash
+# 1. Cloner le repo
+git clone https://github.com/TON_USERNAME/chantieros.git
+cd chantieros
+
+# 2. Installer les dépendances
 npm install
+
+# 3. Configurer la clé API
+cp .env.example .env
+# Éditer .env et ajouter votre ANTHROPIC_API_KEY
+
+# 4. Lancer en développement
 npm run dev
 ```
 
-## Publication GitHub Pages
+L'app est disponible sur `http://localhost:5173`
+L'API tourne sur `http://localhost:3001`
 
-Ce dépôt contient un workflow GitHub Actions qui publie automatiquement le site statique sur GitHub Pages à chaque push sur `main`.
+## Déploiement Vercel
 
-Dans GitHub :
-1. Aller dans **Settings > Pages**
-2. Choisir **Build and deployment > Source: GitHub Actions**
-3. Le site sera accessible sur : `https://FabriceBEAUD.github.io/chantieros/`
+```bash
+npm run build
+vercel --prod
+```
+
+Variables d'environnement à définir dans Vercel :
+- `ANTHROPIC_API_KEY` : votre clé API Anthropic
+
+## Structure
+
+```
+chantieros/
+├── server/
+│   └── index.js          # API Express + endpoint Anthropic streaming
+├── src/
+│   ├── components/
+│   │   ├── Layout.jsx     # Topbar + sidebar + routing
+│   │   └── AIAssistant.jsx # Chat IA avec streaming
+│   ├── hooks/
+│   │   └── useChat.js     # Hook streaming SSE
+│   ├── pages/
+│   │   ├── Dashboard.jsx  # Tableau de bord principal
+│   │   └── Pages.jsx      # Tous les autres modules
+│   ├── data/
+│   │   └── mock.js        # Données de démonstration
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+├── .env.example
+├── package.json
+└── vite.config.js
+```
+
+## Modules
+
+| Module | Route | Description |
+|--------|-------|-------------|
+| Dashboard | `/` | KPIs, chantiers actifs, alertes, Gantt |
+| Chantiers | `/chantiers` | Liste, filtres, création |
+| Planning | `/planning` | Gantt semaine par semaine |
+| Trésorerie | `/finance` | Situations de travaux, impayés |
+| Situations | `/situations` | Calcul et création de situations |
+| RH | `/rh` | Pointages, validation, habilitations |
+| Sécurité | `/securite` | Incidents, PPSPS, EPI |
+| Appels d'offres | `/ao` | Pipeline commercial |
+| Matériel | `/materiel` | Parc machines, révisions |
 
 ## Assistant IA
 
-Le frontend est compatible avec un backend `/api/chat`. Pour utiliser l'assistant IA en production, déployer le dossier `server/` sur un service backend comme Render, Railway ou Vercel avec la variable `ANTHROPIC_API_KEY`.
+L'assistant est propulsé par Claude (claude-sonnet-4) avec un contexte métier TP injecté.
+Il répond en streaming et connaît le contexte de l'entreprise, les chantiers actifs,
+les alertes, la réglementation BTP (CACES, PPSPS, RE2020, marchés publics).
