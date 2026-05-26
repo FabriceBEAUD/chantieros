@@ -6,7 +6,7 @@ export function useChat() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: 'Bonjour Michel ! Je suis votre assistant ChantierOS propulsé par Mistral AI. Que puis-je faire pour vous aujourd’hui ?'
+      content: 'Bonjour Sébastien ! Je suis votre assistant ChantierOS propulsé par Mistral AI. Que puis-je faire pour vous aujourd’hui ?'
     }
   ])
 
@@ -65,7 +65,7 @@ export function useChat() {
     setMessages([
       {
         role: 'assistant',
-        content: 'Bonjour Michel ! Je suis votre assistant ChantierOS propulsé par Mistral AI.'
+        content: 'Bonjour Sébastien ! Je suis votre assistant ChantierOS propulsé par Mistral AI.'
       }
     ])
 
