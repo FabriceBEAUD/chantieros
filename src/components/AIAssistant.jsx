@@ -109,7 +109,7 @@ export default function AIAssistant({ collapsed, onToggle }) {
             <div style={{ fontSize: 13, fontWeight: 500 }}>Assistant IA</div>
             <div style={{ fontSize: 11, color: 'var(--text-2)', display: 'flex', alignItems: 'center', gap: 4 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#639922', display: 'inline-block' }}></span>
-              Propulsé par Claude
+              Propulsé par Mistral AI
             </div>
           </div>
         </div>
