@@ -1,11 +1,11 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import { Chantiers, Finance, Situations, RH, Securite, Planning, AO, Materiel } from './pages/Pages'
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Layout>
         <Routes>
           <Route path="/"           element={<Dashboard />} />
@@ -19,6 +19,6 @@ export default function App() {
           <Route path="/materiel"   element={<Materiel />} />
         </Routes>
       </Layout>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
