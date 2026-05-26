@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react'
 
+const API_BASE_URL = 'https://chantieros.onrender.com'
+
 export function useChat() {
   const [messages, setMessages] = useState([
     {
@@ -23,7 +25,7 @@ export function useChat() {
     setMessages(prev => [...prev, assistantMsg])
 
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: newMessages })
@@ -74,7 +76,7 @@ export function useChat() {
         const updated = [...prev]
         updated[updated.length - 1] = {
           role: 'assistant',
-          content: 'Erreur de connexion à Mistral AI. Vérifiez la variable MISTRAL_API_KEY sur votre serveur.'
+          content: 'Erreur de connexion à Mistral AI. Vérifiez que le backend Render est actif et que MISTRAL_API_KEY est bien renseignée.'
         }
         return updated
       })
