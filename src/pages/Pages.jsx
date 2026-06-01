@@ -108,9 +108,12 @@ export function Chantiers() {
                   <td>
                     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                       <div style={{ width:60, background:'var(--surface2)', borderRadius:4, height:5, overflow:'hidden' }}>
-                        <div style={{ width:(c.avancement||0)+'%', height:'100%', background:c.avancement>60?'#639922':c.avancement>30?'#EF9F27':'#E24B4A', borderRadius:4 }}></div>
+                        <div style={{ width:(c.avancement||0)+'%', height:'100%', background:(c.avancement||0)>60?'#639922':(c.avancement||0)>30?'#EF9F27':'#E24B4A', borderRadius:4 }}></div>
                       </div>
-                      <span style={{ fontSize:11, color:'var(--text-2)' }}>{c.avancement||0}%</span>
+                      <EditableCell value={c.avancement||0} type="number"
+                        onSave={v => update(c.id, { avancement: Math.min(100, Math.max(0, parseInt(v)||0)) })}
+                        style={{ fontSize:11, color:'var(--text-2)', minWidth:28 }} />
+                      <span style={{ fontSize:11, color:'var(--text-3)' }}>%</span>
                     </div>
                   </td>
                   <td><StatusSelect value={c.statut} options={CHANTIER_STATUTS} onChange={v => update(c.id, { statut: v })} /></td>
