@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { jsPDF } from 'jspdf'
 import { useTable } from '../hooks/useTable'
 import { fmt } from '../data/mock'
 
@@ -18,8 +19,48 @@ const StatusSelect = ({ value, options, onChange }) => (
   </select>
 )
 
+function EditableCell({ value, onSave, type = 'text', style = {} }) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(value)
+
+  useEffect(() => setVal(value), [value])
+
+  const commit = () => { setEditing(false); if (val !== value) onSave(val) }
+
+  if (editing) {
+    return <input autoFocus type={type} value={val}
+      onChange={e => setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setVal(value); setEditing(false) } }}
+      style={{ width: type === 'date' ? 120 : 70, fontSize:11, padding:'2px 6px', border:'1px solid var(--blue)', borderRadius:4, background:'var(--surface)', color:'var(--text)', fontFamily:'var(--font)', ...style }} />
+  }
+  return (
+    <span onClick={() => setEditing(true)} title="Cliquer pour modifier"
+      style={{ cursor:'pointer', borderBottom:'1px dashed var(--border)', paddingBottom:1, ...style }}>
+      {value || '—'}
+    </span>
+  )
+}
+
+function StarRating({ value, onChange }) {
+  const [hover, setHover] = useState(0)
+  const n = value || 0
+  return (
+    <span style={{ fontSize:15, letterSpacing:1, cursor:'pointer' }}>
+      {[1,2,3,4,5].map(i => (
+        <span key={i}
+          onMouseEnter={() => setHover(i)}
+          onMouseLeave={() => setHover(0)}
+          onClick={() => onChange(i)}
+          style={{ color: i <= (hover || n) ? 'var(--amber)' : 'var(--border-strong)' }}>
+          ★
+        </span>
+      ))}
+    </span>
+  )
+}
+
 const CHANTIER_STATUTS = [['en_cours','En cours'],['retard','Retard'],['bloque','Bloqué'],['depart','Démarrage'],['termine','Terminé']]
-const CHANTIER_BADGE = { en_cours:'green', retard:'amber', bloque:'red', depart:'blue', termine:'green' }
 
 export function Chantiers() {
   const { data: list, loading, insert, update, remove } = useTable('chantiers')
@@ -145,46 +186,135 @@ export function Finance() {
   )
 }
 
+function generatePDF({ chantier, num, av, periode, rg, net, ttc, echeance }) {
+  const doc = new jsPDF()
+  const today = new Date().toLocaleDateString('fr-FR')
+
+  doc.setFillColor(22, 40, 68)
+  doc.rect(0, 0, 210, 28, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text('ChantierOS', 14, 12)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Situation de travaux', 14, 20)
+
+  doc.setTextColor(40, 40, 40)
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`Situation n° ${num}`, 14, 42)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80, 80, 80)
+  doc.text(`Chantier : ${chantier}`, 14, 52)
+  doc.text(`Date d'émission : ${today}`, 14, 60)
+  doc.text(`Échéance : ${echeance || today}`, 14, 68)
+  doc.text(`Avancement : ${av}%`, 14, 76)
+
+  doc.setDrawColor(200, 200, 200)
+  doc.line(14, 84, 196, 84)
+
+  const rows = [
+    ['Montant de la période HT', `${periode.toLocaleString('fr-FR')} €`],
+    ['Retenue de garantie (5%)', `− ${rg.toLocaleString('fr-FR')} €`],
+    ['Net HT', `${net.toLocaleString('fr-FR')} €`],
+    ['TVA (20%)', `${(ttc - net).toLocaleString('fr-FR')} €`],
+  ]
+
+  let y = 96
+  doc.setFontSize(9)
+  rows.forEach(([label, value]) => {
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80, 80, 80)
+    doc.text(label, 14, y)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(40, 40, 40)
+    doc.text(value, 160, y, { align: 'right' })
+    y += 10
+  })
+
+  doc.line(14, y, 196, y)
+  y += 8
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(22, 40, 68)
+  doc.text('TOTAL NET TTC', 14, y)
+  doc.text(`${ttc.toLocaleString('fr-FR')} €`, 196, y, { align: 'right' })
+
+  doc.setFontSize(8)
+  doc.setTextColor(150, 150, 150)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Document généré par ChantierOS', 14, 282)
+  doc.text(today, 196, 282, { align: 'right' })
+
+  doc.save(`situation-${chantier.replace(/\s+/g,'-')}-n${num}.pdf`)
+}
+
 export function Situations() {
   const { data: chantiers } = useTable('chantiers')
-  const [av, setAv] = useState(68)
-  const [cumul, setCumul] = useState(327800)
-  const [prec, setPrec] = useState(243600)
+  const { data: allSituations, insert } = useTable('situations')
   const [chantier, setChantier] = useState('')
+  const [num, setNum] = useState(1)
+  const [av, setAv] = useState(0)
+  const [cumul, setCumul] = useState(0)
+  const [prec, setPrec] = useState(0)
+  const [echeance, setEcheance] = useState('')
   const [toast, setToast] = useState(false)
-  const { insert } = useTable('situations')
+
+  const selectedNom = chantier || (chantiers[0]?.nom || '')
+  const sitsPourChantier = allSituations.filter(s => s.chantier === selectedNom).sort((a,b) => (a.num||0)-(b.num||0))
+  const derniereSit = sitsPourChantier[sitsPourChantier.length - 1]
+
+  useEffect(() => {
+    if (derniereSit) {
+      setNum((derniereSit.num || 0) + 1)
+      setPrec(derniereSit.ht || 0)
+      setAv(Math.min(100, (derniereSit.avancement || 0) + 10))
+    } else {
+      setNum(1); setPrec(0); setAv(0)
+    }
+  }, [selectedNom, allSituations.length])
 
   const periode = cumul - prec
-  const rg = Math.round(periode * 0.05)
-  const net = periode - rg
+  const rg = Math.round(Math.max(0, periode) * 0.05)
+  const net = Math.max(0, periode) - rg
   const ttc = Math.round(net * 1.2)
 
   const create = async () => {
-    const nom = chantier || (chantiers[0]?.nom || '')
     const today = new Date().toLocaleDateString('fr-FR')
-    await insert({ chantier: nom, num: 1, emise: today, echeance: today, ht: net, ttc, statut: 'emise' })
+    await insert({ chantier: selectedNom, num, emise: today, echeance: echeance || today, ht: net, ttc, avancement: av, statut: 'emise' })
     setToast(true); setTimeout(() => setToast(false), 3000)
+    generatePDF({ chantier: selectedNom, num, av, periode: Math.max(0, periode), rg, net, ttc, echeance })
   }
 
   return (
     <div className="fade-in">
-      {toast && <div className="toast toast-success">Situation de travaux créée</div>}
+      {toast && <div className="toast toast-success">Situation créée et PDF téléchargé</div>}
       <h1 className="section-title" style={{ marginBottom:12 }}>Nouvelle situation de travaux</h1>
       <div className="panel">
         <div className="form-grid">
           <div className="form-row"><label>Chantier</label>
-            <select value={chantier} onChange={e => setChantier(e.target.value)}>
+            <select value={selectedNom} onChange={e => setChantier(e.target.value)}>
               {chantiers.map(c => <option key={c.id} value={c.nom}>{c.nom}</option>)}
             </select>
           </div>
-          <div className="form-row"><label>N° de situation</label><input type="number" defaultValue={1} /></div>
+          <div className="form-row"><label>N° de situation</label><input type="number" value={num} onChange={e=>setNum(+e.target.value)} /></div>
           <div className="form-row"><label>Avancement ({av}%)</label><input type="range" min={0} max={100} step={1} value={av} onChange={e=>setAv(+e.target.value)} /></div>
-          <div className="form-row"><label>Date d'échéance</label><input type="date" /></div>
+          <div className="form-row"><label>Date d'échéance</label><input type="date" value={echeance} onChange={e=>setEcheance(e.target.value)} /></div>
           <div className="form-row"><label>Montant cumulé HT (€)</label><input type="number" value={cumul} onChange={e=>setCumul(+e.target.value)} /></div>
-          <div className="form-row"><label>Montant précédent HT (€)</label><input type="number" value={prec} onChange={e=>setPrec(+e.target.value)} /></div>
+          <div className="form-row"><label>Montant précédent HT (€) <span style={{fontSize:10,color:'var(--text-2)'}}>auto</span></label><input type="number" value={prec} onChange={e=>setPrec(+e.target.value)} /></div>
         </div>
+
+        {sitsPourChantier.length > 0 && (
+          <div style={{ background:'var(--surface2)', borderRadius:6, padding:'8px 12px', marginBottom:12, fontSize:11, color:'var(--text-2)' }}>
+            {sitsPourChantier.length} situation{sitsPourChantier.length>1?'s':''} existante{sitsPourChantier.length>1?'s':''} pour ce chantier —
+            dernière : n°{derniereSit.num} ({fmt(derniereSit.ht)} HT, {derniereSit.statut})
+          </div>
+        )}
+
         <div style={{ background:'var(--surface2)', borderRadius:8, padding:'10px 14px', marginBottom:12 }}>
-          {[[`Montant période HT`,fmt(periode),'var(--text)'],[`Retenue de garantie (5%)`,`− ${fmt(rg)}`,'var(--amber-dark)'],[`Net HT`,fmt(net),'var(--text)'],[`Net TTC (TVA 20%)`,fmt(ttc),'var(--blue)']].map(([l,v,c],i) => (
+          {[[`Montant période HT`,fmt(Math.max(0,periode)),'var(--text)'],[`Retenue de garantie (5%)`,`− ${fmt(rg)}`,'var(--amber-dark)'],[`Net HT`,fmt(net),'var(--text)'],[`Net TTC (TVA 20%)`,fmt(ttc),'var(--blue)']].map(([l,v,c],i) => (
             <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'3px 0', borderTop: i===3?'0.5px solid var(--border)':'none', marginTop: i===3?4:0, paddingTop: i===3?8:3 }}>
               <span style={{ fontSize:12, color: i===3?'var(--text)':'var(--text-2)', fontWeight: i===3?500:400 }}>{l}</span>
               <span style={{ fontSize:12, fontWeight: i===3?500:400, color:c }}>{v}</span>
@@ -192,8 +322,10 @@ export function Situations() {
           ))}
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn-primary" onClick={create}><i className="ti ti-file-invoice" aria-hidden="true"></i>Créer & générer PDF</button>
-          <button className="btn-secondary">Brouillon</button>
+          <button className="btn-primary" onClick={create}><i className="ti ti-file-invoice" aria-hidden="true"></i>Créer & télécharger PDF</button>
+          <button className="btn-secondary" onClick={() => generatePDF({ chantier: selectedNom, num, av, periode: Math.max(0,periode), rg, net, ttc, echeance })}>
+            <i className="ti ti-download" aria-hidden="true"></i>PDF seulement
+          </button>
         </div>
       </div>
     </div>
@@ -341,7 +473,6 @@ const AO_STATUTS = [['analyse','Analyse'],['en_cours','En cours'],['soumis','Sou
 
 export function AO() {
   const { data: ao_data, loading, update, remove } = useTable('ao_data')
-  const stars = (n) => '★'.repeat(n||0) + '☆'.repeat(5-(n||0))
 
   const del = (id, intitule) => { if (window.confirm(`Supprimer l'AO "${intitule}" ?`)) remove(id) }
 
@@ -361,7 +492,7 @@ export function AO() {
                 <tr key={a.id}>
                   <td style={{fontWeight:500}}>{a.intitule}</td><td>{a.acheteur}</td><td>{a.limite}</td>
                   <td>{fmt(a.montant)}</td>
-                  <td style={{ color:'var(--amber)', fontSize:13, letterSpacing:1 }}>{stars(a.prio)}</td>
+                  <td><StarRating value={a.prio} onChange={v => update(a.id, { prio: v })} /></td>
                   <td><StatusSelect value={a.statut} options={AO_STATUTS} onChange={v => update(a.id, { statut: v })} /></td>
                   <td><Del onDelete={() => del(a.id, a.intitule)} /></td>
                 </tr>
@@ -392,15 +523,19 @@ export function Materiel() {
         {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
-            <thead><tr><th>Désignation</th><th>Immat.</th><th>Affecté à</th><th>Prochain entretien</th><th>Compteur</th><th>Statut</th><th></th></tr></thead>
+            <thead><tr><th>Désignation</th><th>Immat.</th><th>Affecté à</th><th>Prochain entretien</th><th>Compteur (h)</th><th>Statut</th><th></th></tr></thead>
             <tbody>
               {materiel_data.map(m => (
                 <tr key={m.id}>
                   <td style={{fontWeight:500}}>{m.nom}</td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11}}>{m.immat}</td>
                   <td>{m.affecte}</td>
-                  <td style={{ color: m.urgent ? 'var(--amber-dark)' : 'var(--text)', fontWeight: m.urgent ? 500 : 400 }}>{m.revision}</td>
-                  <td>{m.heures}</td>
+                  <td style={{ color: m.urgent ? 'var(--amber-dark)' : 'var(--text)' }}>
+                    <EditableCell value={m.revision} type="text" onSave={v => update(m.id, { revision: v })} />
+                  </td>
+                  <td>
+                    <EditableCell value={m.heures} type="number" onSave={v => update(m.id, { heures: v })} />
+                  </td>
                   <td><StatusSelect value={m.statut} options={MAT_STATUTS} onChange={v => update(m.id, { statut: v })} /></td>
                   <td><Del onDelete={() => del(m.id, m.nom)} /></td>
                 </tr>
