@@ -34,6 +34,8 @@ export default function AIAssistant({ collapsed, onToggle }) {
   const { data: situations } = useTable('situations')
   const { data: incidents } = useTable('incidents')
   const { data: habilitations } = useTable('habilitations')
+  const { data: ao } = useTable('ao')
+  const { data: materiel } = useTable('materiel')
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)
 
@@ -43,7 +45,9 @@ export default function AIAssistant({ collapsed, onToggle }) {
     chantiers: chantiers.map(c => ({ ref: c.ref, nom: c.nom, client: c.client, chef: c.chef, budget: c.budget, avancement: c.avancement, statut: c.statut })),
     situations: situations.map(s => ({ chantier: s.chantier, num: s.num, ht: s.ht, ttc: s.ttc, emise: s.emise, echeance: s.echeance, statut: s.statut })),
     incidents: incidents.map(i => ({ chantier: i.chantier, type: i.type, gravite: i.gravite, statut: i.statut })),
-    habilitations: habilitations.map(h => ({ nom: h.nom, type: h.type, expiration: h.expiration, jours: h.jours }))
+    habilitations: habilitations.map(h => ({ nom: h.nom, type: h.type, expiration: h.expiration, jours: h.jours })),
+    appels_offres: ao.map(a => ({ intitule: a.intitule, acheteur: a.acheteur, limite: a.limite, montant: a.montant, priorite: a.priorite, statut: a.statut })),
+    materiel: materiel.map(m => ({ nom: m.nom, type: m.type, statut: m.statut, prochain_entretien: m.prochain_entretien }))
   })
 
   const submit = () => {
