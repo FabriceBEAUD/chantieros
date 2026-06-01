@@ -1,25 +1,85 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { jsPDF } from 'jspdf'
 import { useTable } from '../hooks/useTable'
 import { fmt } from '../data/mock'
 
+const Del = ({ onDelete }) => (
+  <button onClick={onDelete} title="Supprimer"
+    style={{ background:'none', border:'none', color:'var(--text-3)', fontSize:14, cursor:'pointer', padding:'2px 4px', borderRadius:4, lineHeight:1 }}
+    onMouseEnter={e => e.currentTarget.style.color = 'var(--red)'}
+    onMouseLeave={e => e.currentTarget.style.color = 'var(--text-3)'}>
+    <i className="ti ti-trash" aria-hidden="true"></i>
+  </button>
+)
+
+const StatusSelect = ({ value, options, onChange }) => (
+  <select value={value} onChange={e => onChange(e.target.value)}
+    style={{ fontSize:11, padding:'2px 6px', border:'0.5px solid var(--border)', borderRadius:12, background:'var(--surface)', color:'var(--text)', cursor:'pointer', fontFamily:'var(--font)' }}>
+    {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+  </select>
+)
+
+function EditableCell({ value, onSave, type = 'text', style = {} }) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(value)
+
+  useEffect(() => setVal(value), [value])
+
+  const commit = () => { setEditing(false); if (val !== value) onSave(val) }
+
+  if (editing) {
+    return <input autoFocus type={type} value={val}
+      onChange={e => setVal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setVal(value); setEditing(false) } }}
+      style={{ width: type === 'date' ? 120 : 70, fontSize:11, padding:'2px 6px', border:'1px solid var(--blue)', borderRadius:4, background:'var(--surface)', color:'var(--text)', fontFamily:'var(--font)', ...style }} />
+  }
+  return (
+    <span onClick={() => setEditing(true)} title="Cliquer pour modifier"
+      style={{ cursor:'pointer', borderBottom:'1px dashed var(--border)', paddingBottom:1, ...style }}>
+      {value || '—'}
+    </span>
+  )
+}
+
+function StarRating({ value, onChange }) {
+  const [hover, setHover] = useState(0)
+  const n = value || 0
+  return (
+    <span style={{ fontSize:15, letterSpacing:1, cursor:'pointer' }}>
+      {[1,2,3,4,5].map(i => (
+        <span key={i}
+          onMouseEnter={() => setHover(i)}
+          onMouseLeave={() => setHover(0)}
+          onClick={() => onChange(i)}
+          style={{ color: i <= (hover || n) ? 'var(--amber)' : 'var(--border-strong)' }}>
+          ★
+        </span>
+      ))}
+    </span>
+  )
+}
+
+const CHANTIER_STATUTS = [['en_cours','En cours'],['retard','Retard'],['bloque','Bloqué'],['depart','Démarrage'],['termine','Terminé']]
+
 export function Chantiers() {
-  const { data: list, loading, insert } = useTable('chantiers')
+  const { data: list, loading, insert, update, remove } = useTable('chantiers')
   const [filter, setFilter] = useState('tous')
   const [showForm, setShowForm] = useState(false)
   const [toast, setToast] = useState(false)
   const [form, setForm] = useState({ ref:'', nom:'', client:'Conseil Dép. Ain', chef:'P. Durand', budget:'', type:'public' })
 
   const filtered = filter === 'tous' ? list : list.filter(c => c.statut === filter)
-  const filters = [{v:'tous',l:'Tous'},{v:'en_cours',l:'En cours'},{v:'retard',l:'Retard'},{v:'bloque',l:'Bloqué'},{v:'depart',l:'Démarrage'}]
+  const filters = [['tous','Tous'],['en_cours','En cours'],['retard','Retard'],['bloque','Bloqué'],['depart','Démarrage']]
 
   const create = async () => {
     if (!form.nom) return
     await insert({ ref:form.ref||'REF-2026', nom:form.nom, client:form.client, chef:form.chef, budget:parseInt(form.budget)||0, avancement:0, statut:'depart', color:'#378ADD' })
-    setShowForm(false)
-    setToast(true)
-    setTimeout(() => setToast(false), 3000)
+    setShowForm(false); setToast(true); setTimeout(() => setToast(false), 3000)
     setForm({ ref:'', nom:'', client:'Conseil Dép. Ain', chef:'P. Durand', budget:'', type:'public' })
   }
+
+  const del = (id, nom) => { if (window.confirm(`Supprimer le chantier "${nom}" ?`)) remove(id) }
 
   return (
     <div className="fade-in">
@@ -29,15 +89,15 @@ export function Chantiers() {
         <button className="btn-primary" onClick={() => setShowForm(!showForm)}><i className="ti ti-plus" aria-hidden="true"></i>Nouveau chantier</button>
       </div>
       <div style={{ display:'flex', gap:6, marginBottom:10 }}>
-        {filters.map(f => (
-          <button key={f.v} onClick={() => setFilter(f.v)} style={{ padding:'5px 12px', borderRadius:20, border:'0.5px solid var(--border-strong)', background: filter===f.v ? 'var(--blue-dark)' : 'transparent', color: filter===f.v ? 'var(--blue-mid)' : 'var(--text-2)', fontSize:11, cursor:'pointer', fontFamily:'var(--font)' }}>{f.l}</button>
+        {filters.map(([v,l]) => (
+          <button key={v} onClick={() => setFilter(v)} style={{ padding:'5px 12px', borderRadius:20, border:'0.5px solid var(--border-strong)', background: filter===v ? 'var(--blue-dark)' : 'transparent', color: filter===v ? 'var(--blue-mid)' : 'var(--text-2)', fontSize:11, cursor:'pointer', fontFamily:'var(--font)' }}>{l}</button>
         ))}
       </div>
       <div className="panel" style={{ marginBottom:10 }}>
         {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
-            <thead><tr><th>Référence</th><th>Chantier</th><th>Client</th><th>Chef</th><th>Budget</th><th>Avancement</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Référence</th><th>Chantier</th><th>Client</th><th>Chef</th><th>Budget</th><th>Avancement</th><th>Statut</th><th></th></tr></thead>
             <tbody>
               {filtered.map(c => (
                 <tr key={c.id}>
@@ -48,12 +108,16 @@ export function Chantiers() {
                   <td>
                     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                       <div style={{ width:60, background:'var(--surface2)', borderRadius:4, height:5, overflow:'hidden' }}>
-                        <div style={{ width:c.avancement+'%', height:'100%', background:c.avancement>60?'#639922':c.avancement>30?'#EF9F27':'#E24B4A', borderRadius:4 }}></div>
+                        <div style={{ width:(c.avancement||0)+'%', height:'100%', background:(c.avancement||0)>60?'#639922':(c.avancement||0)>30?'#EF9F27':'#E24B4A', borderRadius:4 }}></div>
                       </div>
-                      <span style={{ fontSize:11, color:'var(--text-2)' }}>{c.avancement}%</span>
+                      <EditableCell value={c.avancement||0} type="number"
+                        onSave={v => update(c.id, { avancement: Math.min(100, Math.max(0, parseInt(v)||0)) })}
+                        style={{ fontSize:11, color:'var(--text-2)', minWidth:28 }} />
+                      <span style={{ fontSize:11, color:'var(--text-3)' }}>%</span>
                     </div>
                   </td>
-                  <td><span className={`badge badge-${c.statut==='en_cours'?'green':c.statut==='retard'?'amber':c.statut==='bloque'?'red':'blue'}`}>{c.statut==='en_cours'?'En cours':c.statut==='retard'?'Retard':c.statut==='bloque'?'Bloqué':'Démarrage'}</span></td>
+                  <td><StatusSelect value={c.statut} options={CHANTIER_STATUTS} onChange={v => update(c.id, { statut: v })} /></td>
+                  <td><Del onDelete={() => del(c.id, c.nom)} /></td>
                 </tr>
               ))}
             </tbody>
@@ -82,29 +146,38 @@ export function Chantiers() {
   )
 }
 
+const SIT_STATUTS = [['emise','Émise'],['en_attente','En attente'],['payee','Payée'],['impayee','Impayée']]
+
 export function Finance() {
-  const { data: situations, loading } = useTable('situations')
+  const { data: situations, loading, update, remove } = useTable('situations')
+
+  const totalImpayes = situations.filter(s => s.statut === 'impayee').reduce((s, r) => s + (Number(r.ttc)||0), 0)
+  const totalPayees = situations.filter(s => s.statut === 'payee').reduce((s, r) => s + (Number(r.ttc)||0), 0)
+
+  const del = (id) => { if (window.confirm('Supprimer cette situation ?')) remove(id) }
+
   return (
     <div className="fade-in">
       <h1 className="section-title" style={{ marginBottom:12 }}>Trésorerie & situations de travaux</h1>
       <div className="kpi-grid">
-        <div className="kpi-card"><div className="kpi-val">312k€</div><div className="kpi-lbl">Encaissements prévus 90j</div></div>
-        <div className="kpi-card"><div className="kpi-val">188k€</div><div className="kpi-lbl">Décaissements prévus 90j</div></div>
-        <div className="kpi-card"><div className="kpi-val">214k€</div><div className="kpi-lbl">Impayés total</div><div className="kpi-delta dn">3 factures</div></div>
-        <div className="kpi-card"><div className="kpi-val">87k€</div><div className="kpi-lbl">Retenues de garantie</div></div>
+        <div className="kpi-card"><div className="kpi-val">{fmt(totalPayees)}</div><div className="kpi-lbl">Encaissements</div></div>
+        <div className="kpi-card"><div className="kpi-val">{fmt(totalImpayes)}</div><div className="kpi-lbl">Impayés total</div><div className="kpi-delta dn">{situations.filter(s=>s.statut==='impayee').length} factures</div></div>
+        <div className="kpi-card"><div className="kpi-val">{situations.filter(s=>s.statut==='en_attente').length}</div><div className="kpi-lbl">En attente</div></div>
+        <div className="kpi-card"><div className="kpi-val">{situations.length}</div><div className="kpi-lbl">Total situations</div></div>
       </div>
       <div className="panel">
-        <div className="panel-title">Situations de travaux en cours</div>
+        <div className="panel-title">Situations de travaux</div>
         {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
-            <thead><tr><th>Chantier</th><th>N°</th><th>Émise le</th><th>Échéance</th><th>Montant HT</th><th>TTC</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Chantier</th><th>N°</th><th>Émise le</th><th>Échéance</th><th>Montant HT</th><th>TTC</th><th>Statut</th><th></th></tr></thead>
             <tbody>
               {situations.map(s => (
                 <tr key={s.id}>
                   <td style={{fontWeight:500}}>{s.chantier}</td><td>{s.num}</td><td>{s.emise}</td><td>{s.echeance}</td>
                   <td>{fmt(s.ht)}</td><td>{fmt(s.ttc)}</td>
-                  <td><span className={`badge badge-${s.statut==='payee'?'green':s.statut==='impayee'?'red':s.statut==='en_attente'?'blue':'amber'}`}>{s.statut==='payee'?'Payée':s.statut==='impayee'?'Impayée 61j':s.statut==='en_attente'?'En attente':'Émise'}</span></td>
+                  <td><StatusSelect value={s.statut} options={SIT_STATUTS} onChange={v => update(s.id, { statut: v })} /></td>
+                  <td><Del onDelete={() => del(s.id)} /></td>
                 </tr>
               ))}
             </tbody>
@@ -116,34 +189,135 @@ export function Finance() {
   )
 }
 
+function generatePDF({ chantier, num, av, periode, rg, net, ttc, echeance }) {
+  const doc = new jsPDF()
+  const today = new Date().toLocaleDateString('fr-FR')
+
+  doc.setFillColor(22, 40, 68)
+  doc.rect(0, 0, 210, 28, 'F')
+  doc.setTextColor(255, 255, 255)
+  doc.setFontSize(16)
+  doc.setFont('helvetica', 'bold')
+  doc.text('ChantierOS', 14, 12)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Situation de travaux', 14, 20)
+
+  doc.setTextColor(40, 40, 40)
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.text(`Situation n° ${num}`, 14, 42)
+  doc.setFontSize(10)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(80, 80, 80)
+  doc.text(`Chantier : ${chantier}`, 14, 52)
+  doc.text(`Date d'émission : ${today}`, 14, 60)
+  doc.text(`Échéance : ${echeance || today}`, 14, 68)
+  doc.text(`Avancement : ${av}%`, 14, 76)
+
+  doc.setDrawColor(200, 200, 200)
+  doc.line(14, 84, 196, 84)
+
+  const rows = [
+    ['Montant de la période HT', `${periode.toLocaleString('fr-FR')} €`],
+    ['Retenue de garantie (5%)', `− ${rg.toLocaleString('fr-FR')} €`],
+    ['Net HT', `${net.toLocaleString('fr-FR')} €`],
+    ['TVA (20%)', `${(ttc - net).toLocaleString('fr-FR')} €`],
+  ]
+
+  let y = 96
+  doc.setFontSize(9)
+  rows.forEach(([label, value]) => {
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(80, 80, 80)
+    doc.text(label, 14, y)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(40, 40, 40)
+    doc.text(value, 160, y, { align: 'right' })
+    y += 10
+  })
+
+  doc.line(14, y, 196, y)
+  y += 8
+  doc.setFontSize(11)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(22, 40, 68)
+  doc.text('TOTAL NET TTC', 14, y)
+  doc.text(`${ttc.toLocaleString('fr-FR')} €`, 196, y, { align: 'right' })
+
+  doc.setFontSize(8)
+  doc.setTextColor(150, 150, 150)
+  doc.setFont('helvetica', 'normal')
+  doc.text('Document généré par ChantierOS', 14, 282)
+  doc.text(today, 196, 282, { align: 'right' })
+
+  doc.save(`situation-${chantier.replace(/\s+/g,'-')}-n${num}.pdf`)
+}
+
 export function Situations() {
-  const [av, setAv] = useState(68)
-  const [cumul, setCumul] = useState(327800)
-  const [prec, setPrec] = useState(243600)
+  const { data: chantiers } = useTable('chantiers')
+  const { data: allSituations, insert } = useTable('situations')
+  const [chantier, setChantier] = useState('')
+  const [num, setNum] = useState(1)
+  const [av, setAv] = useState(0)
+  const [cumul, setCumul] = useState(0)
+  const [prec, setPrec] = useState(0)
+  const [echeance, setEcheance] = useState('')
   const [toast, setToast] = useState(false)
 
+  const selectedNom = chantier || (chantiers[0]?.nom || '')
+  const sitsPourChantier = allSituations.filter(s => s.chantier === selectedNom).sort((a,b) => (a.num||0)-(b.num||0))
+  const derniereSit = sitsPourChantier[sitsPourChantier.length - 1]
+
+  useEffect(() => {
+    if (derniereSit) {
+      setNum((derniereSit.num || 0) + 1)
+      setPrec(derniereSit.ht || 0)
+      setAv(Math.min(100, (derniereSit.avancement || 0) + 10))
+    } else {
+      setNum(1); setPrec(0); setAv(0)
+    }
+  }, [selectedNom, allSituations.length])
+
   const periode = cumul - prec
-  const rg = Math.round(periode * 0.05)
-  const net = periode - rg
+  const rg = Math.round(Math.max(0, periode) * 0.05)
+  const net = Math.max(0, periode) - rg
   const ttc = Math.round(net * 1.2)
 
-  const create = () => { setToast(true); setTimeout(() => setToast(false), 3000) }
+  const create = async () => {
+    const today = new Date().toLocaleDateString('fr-FR')
+    await insert({ chantier: selectedNom, num, emise: today, echeance: echeance || today, ht: net, ttc, avancement: av, statut: 'emise' })
+    setToast(true); setTimeout(() => setToast(false), 3000)
+    generatePDF({ chantier: selectedNom, num, av, periode: Math.max(0, periode), rg, net, ttc, echeance })
+  }
 
   return (
     <div className="fade-in">
-      {toast && <div className="toast toast-success">Situation de travaux créée — PDF en cours de génération</div>}
+      {toast && <div className="toast toast-success">Situation créée et PDF téléchargé</div>}
       <h1 className="section-title" style={{ marginBottom:12 }}>Nouvelle situation de travaux</h1>
       <div className="panel">
         <div className="form-grid">
-          <div className="form-row"><label>Chantier</label><select><option>RD132 — Déviation Bourg</option><option>Giratoire N7</option><option>ZAC Les Peupliers</option><option>Assainissement Meximieux</option></select></div>
-          <div className="form-row"><label>N° de situation</label><input type="number" defaultValue={5} /></div>
+          <div className="form-row"><label>Chantier</label>
+            <select value={selectedNom} onChange={e => setChantier(e.target.value)}>
+              {chantiers.map(c => <option key={c.id} value={c.nom}>{c.nom}</option>)}
+            </select>
+          </div>
+          <div className="form-row"><label>N° de situation</label><input type="number" value={num} onChange={e=>setNum(+e.target.value)} /></div>
           <div className="form-row"><label>Avancement ({av}%)</label><input type="range" min={0} max={100} step={1} value={av} onChange={e=>setAv(+e.target.value)} /></div>
-          <div className="form-row"><label>Date d'échéance</label><input type="date" /></div>
+          <div className="form-row"><label>Date d'échéance</label><input type="date" value={echeance} onChange={e=>setEcheance(e.target.value)} /></div>
           <div className="form-row"><label>Montant cumulé HT (€)</label><input type="number" value={cumul} onChange={e=>setCumul(+e.target.value)} /></div>
-          <div className="form-row"><label>Montant précédent HT (€)</label><input type="number" value={prec} onChange={e=>setPrec(+e.target.value)} /></div>
+          <div className="form-row"><label>Montant précédent HT (€) <span style={{fontSize:10,color:'var(--text-2)'}}>auto</span></label><input type="number" value={prec} onChange={e=>setPrec(+e.target.value)} /></div>
         </div>
+
+        {sitsPourChantier.length > 0 && (
+          <div style={{ background:'var(--surface2)', borderRadius:6, padding:'8px 12px', marginBottom:12, fontSize:11, color:'var(--text-2)' }}>
+            {sitsPourChantier.length} situation{sitsPourChantier.length>1?'s':''} existante{sitsPourChantier.length>1?'s':''} pour ce chantier —
+            dernière : n°{derniereSit.num} ({fmt(derniereSit.ht)} HT, {derniereSit.statut})
+          </div>
+        )}
+
         <div style={{ background:'var(--surface2)', borderRadius:8, padding:'10px 14px', marginBottom:12 }}>
-          {[[`Montant période HT`,fmt(periode),'var(--text)'],[`Retenue de garantie (5%)`,`− ${fmt(rg)}`,'var(--amber-dark)'],[`Net HT`,fmt(net),'var(--text)'],[`Net TTC (TVA 20%)`,fmt(ttc),'var(--blue)']].map(([l,v,c],i) => (
+          {[[`Montant période HT`,fmt(Math.max(0,periode)),'var(--text)'],[`Retenue de garantie (5%)`,`− ${fmt(rg)}`,'var(--amber-dark)'],[`Net HT`,fmt(net),'var(--text)'],[`Net TTC (TVA 20%)`,fmt(ttc),'var(--blue)']].map(([l,v,c],i) => (
             <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'3px 0', borderTop: i===3?'0.5px solid var(--border)':'none', marginTop: i===3?4:0, paddingTop: i===3?8:3 }}>
               <span style={{ fontSize:12, color: i===3?'var(--text)':'var(--text-2)', fontWeight: i===3?500:400 }}>{l}</span>
               <span style={{ fontSize:12, fontWeight: i===3?500:400, color:c }}>{v}</span>
@@ -151,8 +325,10 @@ export function Situations() {
           ))}
         </div>
         <div style={{ display:'flex', gap:8 }}>
-          <button className="btn-primary" onClick={create}><i className="ti ti-file-invoice" aria-hidden="true"></i>Créer & générer PDF</button>
-          <button className="btn-secondary">Brouillon</button>
+          <button className="btn-primary" onClick={create}><i className="ti ti-file-invoice" aria-hidden="true"></i>Créer & télécharger PDF</button>
+          <button className="btn-secondary" onClick={() => generatePDF({ chantier: selectedNom, num, av, periode: Math.max(0,periode), rg, net, ttc, echeance })}>
+            <i className="ti ti-download" aria-hidden="true"></i>PDF seulement
+          </button>
         </div>
       </div>
     </div>
@@ -160,33 +336,34 @@ export function Situations() {
 }
 
 export function RH() {
-  const { data: pointages, loading: loadP, update } = useTable('pointages')
-  const { data: habilitations, loading: loadH } = useTable('habilitations')
+  const { data: pointages, loading: loadP, update: updP, remove: delP } = useTable('pointages')
+  const { data: habilitations, loading: loadH, remove: delH } = useTable('habilitations')
 
-  const validate = (id) => update(id, { statut: 'valide' })
+  const delPointage = (id) => { if (window.confirm('Supprimer ce pointage ?')) delP(id) }
+  const delHab = (id, nom) => { if (window.confirm(`Supprimer l'habilitation de ${nom} ?`)) delH(id) }
 
   return (
     <div className="fade-in">
       <h1 className="section-title" style={{ marginBottom:12 }}>RH & pointage du jour</h1>
       <div className="kpi-grid">
-        <div className="kpi-card"><div className="kpi-val">38</div><div className="kpi-lbl">Pointés aujourd'hui</div></div>
-        <div className="kpi-card"><div className="kpi-val">2</div><div className="kpi-lbl">Absences</div></div>
-        <div className="kpi-card"><div className="kpi-val">14</div><div className="kpi-lbl">Grands déplacements</div></div>
-        <div className="kpi-card"><div className="kpi-val">3</div><div className="kpi-lbl">Habilitations à renouveler</div></div>
+        <div className="kpi-card"><div className="kpi-val">{pointages.length}</div><div className="kpi-lbl">Pointages</div></div>
+        <div className="kpi-card"><div className="kpi-val">{pointages.filter(p=>p.statut==='soumis').length}</div><div className="kpi-lbl">À valider</div></div>
+        <div className="kpi-card"><div className="kpi-val">{pointages.filter(p=>p.gd).length}</div><div className="kpi-lbl">Grands déplacements</div></div>
+        <div className="kpi-card"><div className="kpi-val">{habilitations.filter(h=>h.jours<=30).length}</div><div className="kpi-lbl">Habilitations à renouveler</div></div>
       </div>
       <div className="panel" style={{ marginBottom:10 }}>
-        <div className="panel-title">Pointages à valider</div>
+        <div className="panel-title">Pointages</div>
         {loadP ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
-            <thead><tr><th>Salarié</th><th>Chantier</th><th>Date</th><th>Heures</th><th>H.Sup</th><th>GD</th><th>Statut</th><th>Action</th></tr></thead>
+            <thead><tr><th>Salarié</th><th>Chantier</th><th>Date</th><th>Heures</th><th>H.Sup</th><th>GD</th><th>Statut</th><th></th></tr></thead>
             <tbody>
               {pointages.map(p => (
                 <tr key={p.id}>
                   <td style={{fontWeight:500}}>{p.nom}</td><td>{p.chantier}</td><td>{p.date}</td><td>{p.h}</td><td>{p.sup}</td>
                   <td>{p.gd ? <span className="badge badge-green">Oui</span> : 'Non'}</td>
-                  <td><span className={`badge badge-${p.statut==='valide'?'green':'blue'}`}>{p.statut==='valide'?'Validé':'À valider'}</span></td>
-                  <td>{p.statut==='soumis' && <button className="btn-primary" style={{padding:'4px 10px',fontSize:11}} onClick={()=>validate(p.id)}>Valider</button>}</td>
+                  <td><StatusSelect value={p.statut||'soumis'} options={[['soumis','À valider'],['valide','Validé']]} onChange={v => updP(p.id, { statut: v })} /></td>
+                  <td><Del onDelete={() => delPointage(p.id)} /></td>
                 </tr>
               ))}
             </tbody>
@@ -195,15 +372,16 @@ export function RH() {
         )}
       </div>
       <div className="panel">
-        <div className="panel-title">Habilitations expirant dans 30 jours</div>
+        <div className="panel-title">Habilitations</div>
         {loadH ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <table className="data">
-          <thead><tr><th>Salarié</th><th>Habilitation</th><th>Expiration</th><th>Jours restants</th></tr></thead>
+          <thead><tr><th>Salarié</th><th>Habilitation</th><th>Expiration</th><th>Jours restants</th><th></th></tr></thead>
           <tbody>
-            {habilitations.map((h,i) => (
-              <tr key={i}>
+            {habilitations.map(h => (
+              <tr key={h.id}>
                 <td style={{fontWeight:500}}>{h.nom}</td><td>{h.type}</td><td>{h.expiration}</td>
-                <td><span className={`badge badge-${h.jours<0?'red':'amber'}`}>{h.jours<0?'Expiré':h.jours+' jours'}</span></td>
+                <td><span className={`badge badge-${h.jours<0?'red':h.jours<=30?'amber':'green'}`}>{h.jours<0?'Expiré':h.jours+' jours'}</span></td>
+                <td><Del onDelete={() => delHab(h.id, h.nom)} /></td>
               </tr>
             ))}
           </tbody>
@@ -214,10 +392,13 @@ export function RH() {
   )
 }
 
-export function Securite() {
-  const { data: incidents, loading, insert } = useTable('incidents')
+const INC_STATUTS = [['ouvert','Ouvert'],['en_traitement','En traitement'],['ferme','Fermé']]
 
-  const report = () => insert({ chantier:'RD132 Déviation', type:'Situation dangereuse', gravite:'mineur', date:'27/05/2026', statut:'ouvert' })
+export function Securite() {
+  const { data: incidents, loading, insert, update, remove } = useTable('incidents')
+
+  const report = () => insert({ chantier:'RD132 Déviation', type:'Situation dangereuse', gravite:'mineur', date:new Date().toLocaleDateString('fr-FR'), statut:'ouvert' })
+  const del = (id, type) => { if (window.confirm(`Supprimer l'incident "${type}" ?`)) remove(id) }
 
   return (
     <div className="fade-in">
@@ -227,22 +408,23 @@ export function Securite() {
       </div>
       <div className="kpi-grid">
         <div className="kpi-card"><div className="kpi-val">0</div><div className="kpi-lbl">Accidents ce mois</div><div className="kpi-delta up">Objectif atteint</div></div>
-        <div className="kpi-card"><div className="kpi-val">{incidents.length}</div><div className="kpi-lbl">Incidents ouverts</div></div>
+        <div className="kpi-card"><div className="kpi-val">{incidents.filter(i=>i.statut==='ouvert').length}</div><div className="kpi-lbl">Incidents ouverts</div></div>
         <div className="kpi-card"><div className="kpi-val">4/6</div><div className="kpi-lbl">PPSPS à jour</div></div>
         <div className="kpi-card"><div className="kpi-val">3</div><div className="kpi-lbl">EPI à renouveler</div></div>
       </div>
       <div className="panel" style={{ marginBottom:10 }}>
-        <div className="panel-title">Incidents ouverts</div>
+        <div className="panel-title">Incidents</div>
         {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <table className="data">
-          <thead><tr><th>Chantier</th><th>Type</th><th>Gravité</th><th>Date</th><th>Statut</th></tr></thead>
+          <thead><tr><th>Chantier</th><th>Type</th><th>Gravité</th><th>Date</th><th>Statut</th><th></th></tr></thead>
           <tbody>
             {incidents.map(inc => (
               <tr key={inc.id}>
                 <td style={{fontWeight:500}}>{inc.chantier}</td><td>{inc.type}</td>
-                <td><span className={`badge badge-${inc.gravite==='modere'?'amber':'blue'}`}>{inc.gravite}</span></td>
+                <td><span className={`badge badge-${inc.gravite==='modere'?'amber':inc.gravite==='grave'?'red':'blue'}`}>{inc.gravite}</span></td>
                 <td>{inc.date}</td>
-                <td><span className={`badge badge-${inc.statut==='ouvert'?'red':'amber'}`}>{inc.statut}</span></td>
+                <td><StatusSelect value={inc.statut} options={INC_STATUTS} onChange={v => update(inc.id, { statut: v })} /></td>
+                <td><Del onDelete={() => del(inc.id, inc.type)} /></td>
               </tr>
             ))}
           </tbody>
@@ -254,12 +436,11 @@ export function Securite() {
 }
 
 export function Planning() {
+  const { data: chantiers, loading } = useTable('chantiers')
   const weeks = ['S22','S23','S24','S25','S26','S27','S28','S29']
-  const bars = [
-    {nom:'RD132 Déviation',s:0,e:4,c:'#639922'},{nom:'Giratoire N7',s:1,e:6,c:'#EF9F27'},
-    {nom:'ZAC Peupliers',s:2,e:8,c:'#378ADD'},{nom:'Assainissement',s:0,e:2,c:'#639922'},
-    {nom:'Pont RD22',s:1,e:8,c:'#E24B4A'},{nom:'RN75 Réhab.',s:0,e:3,c:'#639922'},
-  ]
+  const colors = { en_cours:'#639922', retard:'#EF9F27', bloque:'#E24B4A', depart:'#378ADD', termine:'#999' }
+  const actifs = chantiers.filter(c => c.statut !== 'termine')
+
   return (
     <div className="fade-in">
       <h1 className="section-title" style={{ marginBottom:12 }}>Planning — vue Gantt</h1>
@@ -270,24 +451,34 @@ export function Planning() {
             {weeks.map(w => <div key={w} style={{ fontSize:10, color:'var(--text-2)', textAlign:'center', fontFamily:'var(--font-mono)' }}>{w}</div>)}
           </div>
         </div>
-        {bars.map((b,i) => (
-          <div key={i} style={{ display:'flex', alignItems:'center', marginBottom:8 }}>
-            <div style={{ width:150, fontSize:12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{b.nom}</div>
-            <div style={{ flex:1, background:'var(--surface2)', borderRadius:4, height:18, display:'grid', gridTemplateColumns:`repeat(${weeks.length},1fr)`, overflow:'hidden' }}>
-              {weeks.map((_,j) => (
-                <div key={j} style={{ height:'100%', background: j>=b.s&&j<b.e ? b.c+'cc' : 'transparent', borderRight: j>=b.s&&j<b.e-1 ? `1px solid ${b.c}33` : 'none' }}></div>
-              ))}
+        {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : actifs.map(c => {
+          const av = c.avancement || 0
+          const end = Math.round((av / 100) * weeks.length)
+          const color = colors[c.statut] || '#639922'
+          return (
+            <div key={c.id} style={{ display:'flex', alignItems:'center', marginBottom:8 }}>
+              <div style={{ width:150, fontSize:12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.nom}</div>
+              <div style={{ flex:1, background:'var(--surface2)', borderRadius:4, height:18, display:'grid', gridTemplateColumns:`repeat(${weeks.length},1fr)`, overflow:'hidden' }}>
+                {weeks.map((_,j) => (
+                  <div key={j} style={{ height:'100%', background: j<end ? color+'cc' : 'transparent', borderRight: j<end-1 ? `1px solid ${color}33` : 'none' }}></div>
+                ))}
+              </div>
+              <div style={{ width:32, textAlign:'right', fontSize:11, color:'var(--text-2)', marginLeft:6 }}>{av}%</div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
 }
 
+const AO_STATUTS = [['analyse','Analyse'],['en_cours','En cours'],['soumis','Soumis'],['gagne','Gagné'],['perdu','Perdu']]
+
 export function AO() {
-  const { data: ao_data, loading } = useTable('ao_data')
-  const stars = (n) => '★'.repeat(n) + '☆'.repeat(5-n)
+  const { data: ao_data, loading, update, remove } = useTable('ao_data')
+
+  const del = (id, intitule) => { if (window.confirm(`Supprimer l'AO "${intitule}" ?`)) remove(id) }
+
   return (
     <div className="fade-in">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
@@ -298,14 +489,15 @@ export function AO() {
         {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
-            <thead><tr><th>Intitulé</th><th>Acheteur</th><th>Limite</th><th>Montant estimé</th><th>Priorité</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Intitulé</th><th>Acheteur</th><th>Limite</th><th>Montant estimé</th><th>Priorité</th><th>Statut</th><th></th></tr></thead>
             <tbody>
-              {ao_data.map((a,i) => (
-                <tr key={i}>
+              {ao_data.map(a => (
+                <tr key={a.id}>
                   <td style={{fontWeight:500}}>{a.intitule}</td><td>{a.acheteur}</td><td>{a.limite}</td>
                   <td>{fmt(a.montant)}</td>
-                  <td style={{ color:'var(--amber)', fontSize:13, letterSpacing:1 }}>{stars(a.prio)}</td>
-                  <td><span className={`badge badge-${a.statut==='en_cours'?'amber':a.statut==='soumis'?'green':'blue'}`}>{a.statut}</span></td>
+                  <td><StarRating value={a.prio} onChange={v => update(a.id, { prio: v })} /></td>
+                  <td><StatusSelect value={a.statut} options={AO_STATUTS} onChange={v => update(a.id, { statut: v })} /></td>
+                  <td><Del onDelete={() => del(a.id, a.intitule)} /></td>
                 </tr>
               ))}
             </tbody>
@@ -317,8 +509,13 @@ export function AO() {
   )
 }
 
+const MAT_STATUTS = [['disponible','Disponible'],['affecte','Affecté'],['en_revision','En révision'],['panne','Panne']]
+
 export function Materiel() {
-  const { data: materiel_data, loading } = useTable('materiel_data')
+  const { data: materiel_data, loading, update, remove } = useTable('materiel_data')
+
+  const del = (id, nom) => { if (window.confirm(`Supprimer "${nom}" du parc matériel ?`)) remove(id) }
+
   return (
     <div className="fade-in">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
@@ -329,16 +526,21 @@ export function Materiel() {
         {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
-            <thead><tr><th>Désignation</th><th>Immat.</th><th>Affecté à</th><th>Prochain entretien</th><th>Compteur</th><th>Statut</th></tr></thead>
+            <thead><tr><th>Désignation</th><th>Immat.</th><th>Affecté à</th><th>Prochain entretien</th><th>Compteur (h)</th><th>Statut</th><th></th></tr></thead>
             <tbody>
-              {materiel_data.map((m,i) => (
-                <tr key={i}>
+              {materiel_data.map(m => (
+                <tr key={m.id}>
                   <td style={{fontWeight:500}}>{m.nom}</td>
                   <td style={{fontFamily:'var(--font-mono)',fontSize:11}}>{m.immat}</td>
                   <td>{m.affecte}</td>
-                  <td style={{ color: m.urgent ? 'var(--amber-dark)' : 'var(--text)', fontWeight: m.urgent ? 500 : 400 }}>{m.revision}</td>
-                  <td>{m.heures}</td>
-                  <td><span className={`badge badge-${m.statut==='disponible'?'green':m.statut==='affecte'?'blue':m.statut==='en_revision'?'red':'amber'}`}>{m.statut}</span></td>
+                  <td style={{ color: m.urgent ? 'var(--amber-dark)' : 'var(--text)' }}>
+                    <EditableCell value={m.revision} type="text" onSave={v => update(m.id, { revision: v })} />
+                  </td>
+                  <td>
+                    <EditableCell value={m.heures} type="number" onSave={v => update(m.id, { heures: v })} />
+                  </td>
+                  <td><StatusSelect value={m.statut} options={MAT_STATUTS} onChange={v => update(m.id, { statut: v })} /></td>
+                  <td><Del onDelete={() => del(m.id, m.nom)} /></td>
                 </tr>
               ))}
             </tbody>
