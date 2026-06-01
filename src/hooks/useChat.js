@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 
-const API_BASE_URL = 'https://chantieros.onrender.com'
+const API_BASE_URL = ''
 
 export function useChat() {
   const [messages, setMessages] = useState([
