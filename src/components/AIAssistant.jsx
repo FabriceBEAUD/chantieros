@@ -34,8 +34,8 @@ export default function AIAssistant({ collapsed, onToggle }) {
   const { data: situations } = useTable('situations')
   const { data: incidents } = useTable('incidents')
   const { data: habilitations } = useTable('habilitations')
-  const { data: ao } = useTable('ao')
-  const { data: materiel } = useTable('materiel')
+  const { data: ao } = useTable('ao_data')
+  const { data: materiel } = useTable('materiel_data')
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)
 
