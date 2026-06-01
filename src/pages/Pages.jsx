@@ -1,19 +1,20 @@
 import { useState } from 'react'
-import { chantiers, situations, pointages, habilitations, incidents, ao_data, materiel_data, fmt } from '../data/mock'
+import { useTable } from '../hooks/useTable'
+import { fmt } from '../data/mock'
 
 export function Chantiers() {
+  const { data: list, loading, insert } = useTable('chantiers')
   const [filter, setFilter] = useState('tous')
   const [showForm, setShowForm] = useState(false)
-  const [list, setList] = useState(chantiers)
   const [toast, setToast] = useState(false)
   const [form, setForm] = useState({ ref:'', nom:'', client:'Conseil Dép. Ain', chef:'P. Durand', budget:'', type:'public' })
 
   const filtered = filter === 'tous' ? list : list.filter(c => c.statut === filter)
   const filters = [{v:'tous',l:'Tous'},{v:'en_cours',l:'En cours'},{v:'retard',l:'Retard'},{v:'bloque',l:'Bloqué'},{v:'depart',l:'Démarrage'}]
 
-  const create = () => {
+  const create = async () => {
     if (!form.nom) return
-    setList([...list, { id: list.length+1, ref:form.ref||'REF-2026', nom:form.nom, client:form.client, chef:form.chef, budget:parseInt(form.budget)||0, avancement:0, statut:'depart', color:'#378ADD' }])
+    await insert({ ref:form.ref||'REF-2026', nom:form.nom, client:form.client, chef:form.chef, budget:parseInt(form.budget)||0, avancement:0, statut:'depart', color:'#378ADD' })
     setShowForm(false)
     setToast(true)
     setTimeout(() => setToast(false), 3000)
@@ -33,6 +34,7 @@ export function Chantiers() {
         ))}
       </div>
       <div className="panel" style={{ marginBottom:10 }}>
+        {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
             <thead><tr><th>Référence</th><th>Chantier</th><th>Client</th><th>Chef</th><th>Budget</th><th>Avancement</th><th>Statut</th></tr></thead>
@@ -57,6 +59,7 @@ export function Chantiers() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
       {showForm && (
         <div className="panel fade-in">
@@ -80,6 +83,7 @@ export function Chantiers() {
 }
 
 export function Finance() {
+  const { data: situations, loading } = useTable('situations')
   return (
     <div className="fade-in">
       <h1 className="section-title" style={{ marginBottom:12 }}>Trésorerie & situations de travaux</h1>
@@ -91,6 +95,7 @@ export function Finance() {
       </div>
       <div className="panel">
         <div className="panel-title">Situations de travaux en cours</div>
+        {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
             <thead><tr><th>Chantier</th><th>N°</th><th>Émise le</th><th>Échéance</th><th>Montant HT</th><th>TTC</th><th>Statut</th></tr></thead>
@@ -105,6 +110,7 @@ export function Finance() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   )
@@ -154,8 +160,10 @@ export function Situations() {
 }
 
 export function RH() {
-  const [list, setList] = useState(pointages)
-  const validate = (id) => setList(list.map(p => p.id===id ? {...p,statut:'valide'} : p))
+  const { data: pointages, loading: loadP, update } = useTable('pointages')
+  const { data: habilitations, loading: loadH } = useTable('habilitations')
+
+  const validate = (id) => update(id, { statut: 'valide' })
 
   return (
     <div className="fade-in">
@@ -168,11 +176,12 @@ export function RH() {
       </div>
       <div className="panel" style={{ marginBottom:10 }}>
         <div className="panel-title">Pointages à valider</div>
+        {loadP ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
             <thead><tr><th>Salarié</th><th>Chantier</th><th>Date</th><th>Heures</th><th>H.Sup</th><th>GD</th><th>Statut</th><th>Action</th></tr></thead>
             <tbody>
-              {list.map(p => (
+              {pointages.map(p => (
                 <tr key={p.id}>
                   <td style={{fontWeight:500}}>{p.nom}</td><td>{p.chantier}</td><td>{p.date}</td><td>{p.h}</td><td>{p.sup}</td>
                   <td>{p.gd ? <span className="badge badge-green">Oui</span> : 'Non'}</td>
@@ -183,9 +192,11 @@ export function RH() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
       <div className="panel">
         <div className="panel-title">Habilitations expirant dans 30 jours</div>
+        {loadH ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <table className="data">
           <thead><tr><th>Salarié</th><th>Habilitation</th><th>Expiration</th><th>Jours restants</th></tr></thead>
           <tbody>
@@ -197,17 +208,16 @@ export function RH() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   )
 }
 
 export function Securite() {
-  const [list, setList] = useState(incidents)
+  const { data: incidents, loading, insert } = useTable('incidents')
 
-  const report = () => {
-    setList([{ id:list.length+1, chantier:'RD132 Déviation', type:'Situation dangereuse', gravite:'mineur', date:'27/05/2026', statut:'ouvert' }, ...list])
-  }
+  const report = () => insert({ chantier:'RD132 Déviation', type:'Situation dangereuse', gravite:'mineur', date:'27/05/2026', statut:'ouvert' })
 
   return (
     <div className="fade-in">
@@ -217,16 +227,17 @@ export function Securite() {
       </div>
       <div className="kpi-grid">
         <div className="kpi-card"><div className="kpi-val">0</div><div className="kpi-lbl">Accidents ce mois</div><div className="kpi-delta up">Objectif atteint</div></div>
-        <div className="kpi-card"><div className="kpi-val">{list.length}</div><div className="kpi-lbl">Incidents ouverts</div></div>
+        <div className="kpi-card"><div className="kpi-val">{incidents.length}</div><div className="kpi-lbl">Incidents ouverts</div></div>
         <div className="kpi-card"><div className="kpi-val">4/6</div><div className="kpi-lbl">PPSPS à jour</div></div>
         <div className="kpi-card"><div className="kpi-val">3</div><div className="kpi-lbl">EPI à renouveler</div></div>
       </div>
       <div className="panel" style={{ marginBottom:10 }}>
         <div className="panel-title">Incidents ouverts</div>
+        {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <table className="data">
           <thead><tr><th>Chantier</th><th>Type</th><th>Gravité</th><th>Date</th><th>Statut</th></tr></thead>
           <tbody>
-            {list.map(inc => (
+            {incidents.map(inc => (
               <tr key={inc.id}>
                 <td style={{fontWeight:500}}>{inc.chantier}</td><td>{inc.type}</td>
                 <td><span className={`badge badge-${inc.gravite==='modere'?'amber':'blue'}`}>{inc.gravite}</span></td>
@@ -236,6 +247,7 @@ export function Securite() {
             ))}
           </tbody>
         </table>
+        )}
       </div>
     </div>
   )
@@ -274,6 +286,7 @@ export function Planning() {
 }
 
 export function AO() {
+  const { data: ao_data, loading } = useTable('ao_data')
   const stars = (n) => '★'.repeat(n) + '☆'.repeat(5-n)
   return (
     <div className="fade-in">
@@ -282,6 +295,7 @@ export function AO() {
         <button className="btn-primary"><i className="ti ti-plus" aria-hidden="true"></i>Ajouter un AO</button>
       </div>
       <div className="panel">
+        {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
             <thead><tr><th>Intitulé</th><th>Acheteur</th><th>Limite</th><th>Montant estimé</th><th>Priorité</th><th>Statut</th></tr></thead>
@@ -297,12 +311,14 @@ export function AO() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   )
 }
 
 export function Materiel() {
+  const { data: materiel_data, loading } = useTable('materiel_data')
   return (
     <div className="fade-in">
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
@@ -310,6 +326,7 @@ export function Materiel() {
         <button className="btn-primary"><i className="ti ti-plus" aria-hidden="true"></i>Ajouter un engin</button>
       </div>
       <div className="panel">
+        {loading ? <div style={{color:'var(--text-2)',fontSize:12,padding:12}}>Chargement…</div> : (
         <div style={{ overflowX:'auto' }}>
           <table className="data">
             <thead><tr><th>Désignation</th><th>Immat.</th><th>Affecté à</th><th>Prochain entretien</th><th>Compteur</th><th>Statut</th></tr></thead>
@@ -327,6 +344,7 @@ export function Materiel() {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   )
