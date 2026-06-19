@@ -1,5 +1,9 @@
 {
   "framework": "vite",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/chantieros/(.*)", "destination": "/chantieros/index.html" },
+    { "source": "/chantieros", "destination": "/chantieros/index.html" }
+  ]
 }
