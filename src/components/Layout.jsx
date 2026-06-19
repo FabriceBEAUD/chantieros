@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import AIAssistant from './AIAssistant'
+import { useIsMobile } from '../hooks/useIsMobile'
 
 const NAV = [
   { section: 'Pilotage' },
@@ -18,38 +19,56 @@ const NAV = [
   { id: '/materiel', icon: 'ti-truck', label: 'Matériel' },
 ]
 
+const BOTTOM_NAV = [
+  { id: '/', icon: 'ti-layout-dashboard', label: 'Accueil' },
+  { id: '/chantiers', icon: 'ti-building-factory', label: 'Chantiers' },
+  { id: '/finance', icon: 'ti-cash', label: 'Finance' },
+  { id: '/rh', icon: 'ti-users', label: 'RH' },
+  { id: '/securite', icon: 'ti-shield-check', label: 'Sécurité' },
+]
+
 export default function Layout({ children }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const [aiOpen, setAiOpen] = useState(true)
+  const isMobile = useIsMobile()
+  const [aiOpen, setAiOpen] = useState(!isMobile)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+
+      {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px', background: 'var(--surface)',
+        padding: isMobile ? '10px 12px' : '10px 16px',
+        background: 'var(--surface)',
         borderBottom: '0.5px solid var(--border)', flexShrink: 0, zIndex: 10
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15, fontWeight: 500 }}>
           <i className="ti ti-helmet" aria-hidden="true" style={{ color: 'var(--blue)', fontSize: 20 }}></i>
           Chantier<span style={{ color: 'var(--blue)' }}>OS</span>
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {[['/', 'Tableau de bord'], ['/chantiers', 'Chantiers'], ['/finance', 'Finance'], ['/rh', 'RH'], ['/securite', 'Sécurité']].map(([path, label]) => (
-            <button
-              key={path}
-              onClick={() => navigate(path)}
-              style={{
-                padding: '5px 10px', borderRadius: 6, border: 'none',
-                background: pathname === path ? 'var(--blue-light)' : 'transparent',
-                color: pathname === path ? 'var(--blue-dark)' : 'var(--text-2)',
-                fontWeight: pathname === path ? 500 : 400, fontSize: 12, cursor: 'pointer',
-                transition: 'all 0.12s'
-              }}
-            >{label}</button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+
+        {/* Desktop nav */}
+        {!isMobile && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            {[['/', 'Tableau de bord'], ['/chantiers', 'Chantiers'], ['/finance', 'Finance'], ['/rh', 'RH'], ['/securite', 'Sécurité']].map(([path, label]) => (
+              <button
+                key={path}
+                onClick={() => navigate(path)}
+                style={{
+                  padding: '5px 10px', borderRadius: 6, border: 'none',
+                  background: pathname === path ? 'var(--blue-light)' : 'transparent',
+                  color: pathname === path ? 'var(--blue-dark)' : 'var(--text-2)',
+                  fontWeight: pathname === path ? 500 : 400, fontSize: 12, cursor: 'pointer',
+                  transition: 'all 0.12s'
+                }}
+              >{label}</button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 10 }}>
           <button
             onClick={() => setAiOpen(!aiOpen)}
             style={{
@@ -61,28 +80,47 @@ export default function Layout({ children }) {
             }}
           >
             <i className="ti ti-message-chatbot" aria-hidden="true" style={{ fontSize: 14 }}></i>
-            Assistant IA
+            {!isMobile && 'Assistant IA'}
           </button>
-          <div style={{ position: 'relative' }}>
-            <i className="ti ti-bell" aria-hidden="true" style={{ fontSize: 18, color: 'var(--text-2)' }}></i>
-            <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, background: 'var(--red)', borderRadius: '50%' }}></span>
-          </div>
-          <div style={{
-            width: 30, height: 30, borderRadius: '50%', background: 'var(--blue-light)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 500, color: 'var(--blue-dark)'
-          }}>MR</div>
+
+          {!isMobile && (
+            <>
+              <div style={{ position: 'relative' }}>
+                <i className="ti ti-bell" aria-hidden="true" style={{ fontSize: 18, color: 'var(--text-2)' }}></i>
+                <span style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, background: 'var(--red)', borderRadius: '50%' }}></span>
+              </div>
+              <div style={{
+                width: 30, height: 30, borderRadius: '50%', background: 'var(--blue-light)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 500, color: 'var(--blue-dark)'
+              }}>MR</div>
+            </>
+          )}
+
+          {/* Mobile hamburger */}
+          {isMobile && (
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              style={{
+                background: 'none', border: 'none', fontSize: 22,
+                color: 'var(--text-2)', cursor: 'pointer', padding: 4
+              }}
+            >
+              <i className={`ti ${menuOpen ? 'ti-x' : 'ti-menu-2'}`} aria-hidden="true"></i>
+            </button>
+          )}
         </div>
       </div>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* Mobile slide-down menu */}
+      {isMobile && menuOpen && (
         <div style={{
-          width: 190, flexShrink: 0, background: 'var(--surface)',
-          borderRight: '0.5px solid var(--border)', overflowY: 'auto', padding: '8px 0'
+          background: 'var(--surface)', borderBottom: '0.5px solid var(--border)',
+          padding: '8px 0', zIndex: 9, flexShrink: 0
         }}>
           {NAV.map((item, i) => {
             if (item.section) return (
-              <div key={i} style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '12px 14px 4px' }}>
+              <div key={i} style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '10px 16px 4px' }}>
                 {item.section}
               </div>
             )
@@ -90,30 +128,93 @@ export default function Layout({ children }) {
             return (
               <div
                 key={item.id}
-                onClick={() => navigate(item.id)}
+                onClick={() => { navigate(item.id); setMenuOpen(false) }}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '7px 14px', cursor: 'pointer', fontSize: 12,
-                  color: active ? 'var(--blue-dark)' : 'var(--text-2)',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 16px', cursor: 'pointer', fontSize: 13,
+                  color: active ? 'var(--blue-dark)' : 'var(--text)',
                   background: active ? 'var(--blue-light)' : 'transparent',
                   fontWeight: active ? 500 : 400,
-                  borderLeft: active ? '2px solid var(--blue)' : '2px solid transparent',
-                  transition: 'all 0.12s'
                 }}
               >
-                <i className={`ti ${item.icon}`} aria-hidden="true" style={{ fontSize: 15 }}></i>
+                <i className={`ti ${item.icon}`} aria-hidden="true" style={{ fontSize: 17 }}></i>
                 {item.label}
               </div>
             )
           })}
         </div>
+      )}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: 16, background: 'var(--bg)' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Desktop sidebar */}
+        {!isMobile && (
+          <div style={{
+            width: 190, flexShrink: 0, background: 'var(--surface)',
+            borderRight: '0.5px solid var(--border)', overflowY: 'auto', padding: '8px 0'
+          }}>
+            {NAV.map((item, i) => {
+              if (item.section) return (
+                <div key={i} style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.06em', padding: '12px 14px 4px' }}>
+                  {item.section}
+                </div>
+              )
+              const active = pathname === item.id
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => navigate(item.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '7px 14px', cursor: 'pointer', fontSize: 12,
+                    color: active ? 'var(--blue-dark)' : 'var(--text-2)',
+                    background: active ? 'var(--blue-light)' : 'transparent',
+                    fontWeight: active ? 500 : 400,
+                    borderLeft: active ? '2px solid var(--blue)' : '2px solid transparent',
+                    transition: 'all 0.12s'
+                  }}
+                >
+                  <i className={`ti ${item.icon}`} aria-hidden="true" style={{ fontSize: 15 }}></i>
+                  {item.label}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 12 : 16, background: 'var(--bg)', paddingBottom: isMobile ? 72 : 16 }}>
           {children}
         </div>
 
         <AIAssistant collapsed={!aiOpen} onToggle={() => setAiOpen(!aiOpen)} />
       </div>
+
+      {/* Mobile bottom nav */}
+      {isMobile && (
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0,
+          background: 'var(--surface)', borderTop: '0.5px solid var(--border)',
+          display: 'flex', zIndex: 20, paddingBottom: 'env(safe-area-inset-bottom)'
+        }}>
+          {BOTTOM_NAV.map(item => {
+            const active = pathname === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => { navigate(item.id); setMenuOpen(false) }}
+                style={{
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  gap: 2, padding: '8px 4px', border: 'none', background: 'none',
+                  color: active ? 'var(--blue-dark)' : 'var(--text-2)', cursor: 'pointer',
+                  fontFamily: 'var(--font)'
+                }}
+              >
+                <i className={`ti ${item.icon}`} aria-hidden="true" style={{ fontSize: 20, color: active ? 'var(--blue)' : 'var(--text-2)' }}></i>
+                <span style={{ fontSize: 10, fontWeight: active ? 500 : 400 }}>{item.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

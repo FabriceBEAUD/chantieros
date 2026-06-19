@@ -101,7 +101,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 10, marginBottom: 10 }}>
+      <div className="dashboard-main" style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 10, marginBottom: 10 }}>
         <div className="panel">
           <div className="panel-title">Chantiers actifs <button onClick={() => navigate('/chantiers')}>Voir tous →</button></div>
           {actifs.slice(0, 5).map(c => (

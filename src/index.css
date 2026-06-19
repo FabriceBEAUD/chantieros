@@ -151,3 +151,11 @@ table.data tr:hover td { background: var(--surface2); }
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-in { animation: fadeIn 0.2s ease; }
+
+@media (max-width: 768px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .form-grid { grid-template-columns: 1fr; }
+  .dashboard-main { grid-template-columns: 1fr !important; }
+  table.data th:nth-child(n+4),
+  table.data td:nth-child(n+4) { display: none; }
+}
