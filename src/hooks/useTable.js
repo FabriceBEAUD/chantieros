@@ -9,13 +9,15 @@ const MOCK_TABLES = {
   habilitations: mock.habilitations,
   incidents: mock.incidents,
   ao: mock.ao_data,
+  ao_data: mock.ao_data,
   materiel: mock.materiel_data,
+  materiel_data: mock.materiel_data,
 }
 
 export function useTable(table) {
   const mockData = MOCK_TABLES[table] || []
   const [data, setData] = useState(mockData)
-  const [loading, setLoading] = useState(!!supabase)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!supabase) return
