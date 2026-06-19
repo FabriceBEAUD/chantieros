@@ -3,7 +3,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/chantieros/(.*)", "destination": "/chantieros/index.html" },
-    { "source": "/chantieros", "destination": "/chantieros/index.html" }
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
