@@ -14,13 +14,13 @@ const MOCK_TABLES = {
 
 export function useTable(table) {
   const mockData = MOCK_TABLES[table] || []
-  const [data, setData] = useState(supabase ? [] : mockData)
+  const [data, setData] = useState(mockData)
   const [loading, setLoading] = useState(!!supabase)
 
   useEffect(() => {
     if (!supabase) return
     supabase.from(table).select('*').then(({ data: rows }) => {
-      setData(rows || [])
+      if (rows && rows.length > 0) setData(rows)
       setLoading(false)
     })
   }, [table])
